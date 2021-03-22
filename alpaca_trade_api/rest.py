@@ -546,13 +546,14 @@ class REST(object):
                     print("retrying a 500....  (#{})".format(retries))
                     continue
                 raise
-            except ReadTimeout:
+            except requests.exceptions.ReadTimeout:
                 if retries < max500Retry:
                     retries += 1
                     time.sleep(0.1)
                     print("retrying a timeout....  (#{})".format(retries))
                     continue
                 raise
+            
             items = resp.get(endpoint, [])
             retries = 0
             for item in items:
