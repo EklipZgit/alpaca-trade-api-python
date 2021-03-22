@@ -541,7 +541,7 @@ class REST(object):
                 if ex.status_code == 500 and retries < max500Retry:
                     retries += 1
                     time.sleep(0.1)
-                    print("retrying a 500....")
+                    print("retrying a 500....  (#{})".format(retries))
                     continue
                 raise
             items = resp.get(endpoint, [])
