@@ -523,6 +523,8 @@ class REST(object):
         page_token = None
         total_items = 0
         limit = kwargs.get('limit')
+        max500Retry = 10
+        retries=0
         while True:
             actual_limit = None
             if limit:
@@ -532,8 +534,16 @@ class REST(object):
             data = kwargs
             data['limit'] = actual_limit
             data['page_token'] = page_token
-            resp = self.data_get('/stocks/{}/{}'.format(symbol, endpoint),
-                                 data=data, api_version='v2')
+            try:
+                resp = self.data_get('/stocks/{}/{}'.format(symbol, endpoint),
+                                     data=data, api_version='v2')
+            except APIError as ex:
+                if ex.status_code == 500 and retries < max500Retry:
+                    retries += 1
+                    time.sleep(0.1)
+                    print("retrying a 500....")
+                    continue
+                raise
             items = resp.get(endpoint, [])
             for item in items:
                 yield item
