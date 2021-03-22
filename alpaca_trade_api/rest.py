@@ -125,9 +125,10 @@ class REST(object):
             # human error to put non-SSL endpoint could exploit
             # uncanny issues in non-GET request redirecting http->https.
             # It's better to fail early if the URL isn't right.
-            'allow_redirects': False,
-            'timeout': 1.5
+            'allow_redirects': False
         }
+        if '/stocks/' in path and ('/quotes' in path or '/trades' in path):
+            opts['timeout'] = 1.5
         if method.upper() == 'GET':
             opts['params'] = data
         else:
@@ -553,7 +554,7 @@ class REST(object):
                     print("retrying a timeout....  (#{})".format(retries))
                     continue
                 raise
-            
+
             items = resp.get(endpoint, [])
             retries = 0
             for item in items:
