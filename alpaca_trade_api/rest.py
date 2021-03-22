@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Iterator, List, Union
 import requests
+from pip._vendor.requests import ReadTimeout
 from requests.exceptions import HTTPError
 import time
 from enum import Enum
@@ -543,6 +544,13 @@ class REST(object):
                     retries += 1
                     time.sleep(0.1)
                     print("retrying a 500....  (#{})".format(retries))
+                    continue
+                raise
+            except ReadTimeout:
+                if retries < max500Retry:
+                    retries += 1
+                    time.sleep(0.1)
+                    print("retrying a timeout....  (#{})".format(retries))
                     continue
                 raise
             items = resp.get(endpoint, [])
