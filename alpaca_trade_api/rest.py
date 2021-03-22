@@ -125,7 +125,7 @@ class REST(object):
             # uncanny issues in non-GET request redirecting http->https.
             # It's better to fail early if the URL isn't right.
             'allow_redirects': False,
-            'timeout': 3.0
+            'timeout': 2.0
         }
         if method.upper() == 'GET':
             opts['params'] = data
