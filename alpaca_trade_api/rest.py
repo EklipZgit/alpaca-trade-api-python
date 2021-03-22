@@ -545,6 +545,7 @@ class REST(object):
                     continue
                 raise
             items = resp.get(endpoint, [])
+            retries = 0
             for item in items:
                 yield item
             total_items += len(items)
