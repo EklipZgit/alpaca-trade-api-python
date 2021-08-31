@@ -17,7 +17,8 @@ from .entity import (
     Asset, Order, Position, BarSet, Clock, Calendar,
     Aggs, Trade, Quote, Watchlist, PortfolioHistory
 )
-from .entity_v2 import BarsV2, TradesV2, QuotesV2
+from .entity_v2 import (
+    BarsV2, SnapshotV2, SnapshotsV2, TradesV2, TradeV2, QuotesV2, QuoteV2)
 from . import polygon
 
 logger = logging.getLogger(__name__)
@@ -108,8 +109,7 @@ class REST(object):
                  path,
                  data=None,
                  base_url: URL = None,
-                 api_version: str = None
-                 ):
+                 api_version: str = None):
         base_url = base_url or self._base_url
         version = api_version if api_version else self._api_version
         url: URL = URL(base_url + '/' + version + path)
@@ -129,7 +129,7 @@ class REST(object):
         }
         if '/stocks/' in path and ('/quotes' in path or '/trades' in path):
             opts['timeout'] = 1.5
-        if method.upper() == 'GET':
+        if method.upper() in ['GET', 'DELETE']:
             opts['params'] = data
         else:
             opts['json'] = data
@@ -237,7 +237,9 @@ class REST(object):
                     until: str = None,
                     direction: str = None,
                     params=None,
-                    nested: bool = None) -> Orders:
+                    nested: bool = None,
+                    symbols: List[str] = None
+                    ) -> Orders:
         """
         Get a list of orders
         https://docs.alpaca.markets/web-api/orders/#get-a-list-of-orders
@@ -248,6 +250,8 @@ class REST(object):
         :param until: timestamp
         :param direction: asc or desc.
         :param params: refer to documentation
+        :param nested: should the data be nested like json
+        :param symbols: list of str (symbols)
         """
         if params is None:
             params = dict()
@@ -263,6 +267,8 @@ class REST(object):
             params['status'] = status
         if nested is not None:
             params['nested'] = nested
+        if symbols is not None:
+            params['symbols'] = ",".join(symbols)
         url = '/orders'
         resp = self.get(url, params)
         if self._use_raw_data:
@@ -272,10 +278,10 @@ class REST(object):
 
     def submit_order(self,
                      symbol: str,
-                     qty: int,
-                     side: str,
-                     type: str,
-                     time_in_force: str,
+                     qty: float = None,
+                     side: str = "buy",
+                     type: str = "market",
+                     time_in_force: str = "day",
                      limit_price: str = None,
                      stop_price: str = None,
                      client_order_id: str = None,
@@ -284,10 +290,11 @@ class REST(object):
                      take_profit: dict = None,
                      stop_loss: dict = None,
                      trail_price: str = None,
-                     trail_percent: str = None):
+                     trail_percent: str = None,
+                     notional: float = None):
         """
         :param symbol: symbol or asset ID
-        :param qty: int
+        :param qty: float. Mutually exclusive with "notional".
         :param side: buy or sell
         :param type: market, limit, stop, stop_limit or trailing_stop
         :param time_in_force: day, gtc, opg, cls, ioc, fok
@@ -303,15 +310,19 @@ class REST(object):
                {"stop_price": "297.95", "limit_price": "298.95"}
         :param trail_price: str of float
         :param trail_percent: str of float
+        :param notional: float. Mutually exclusive with "qty".
         """
         """Request a new order"""
         params = {
             'symbol':        symbol,
-            'qty':           qty,
             'side':          side,
             'type':          type,
             'time_in_force': time_in_force
         }
+        if qty is not None:
+            params['qty'] = qty
+        if notional is not None:
+            params['notional'] = notional
         if limit_price is not None:
             params['limit_price'] = FLOAT(limit_price)
         if stop_price is not None:
@@ -363,7 +374,7 @@ class REST(object):
             stop_price: str = None,
             trail: str = None,
             time_in_force: str = None,
-            client_order_id: str = None
+            client_order_id: str = None,
     ) -> Order:
         """
         :param order_id:
@@ -414,9 +425,24 @@ class REST(object):
         resp = self.get('/positions/{}'.format(symbol))
         return self.response_wrapper(resp, Position)
 
-    def close_position(self, symbol: str) -> Position:
+    def close_position(self, symbol: str, *,
+                       qty: float = None,
+                       # percentage: float = None  # currently unsupported api
+                       ) -> Position:
         """Liquidates the position for the given symbol at market price"""
-        resp = self.delete('/positions/{}'.format(symbol))
+        # if qty and percentage:
+        #     raise Exception("Can't close position with qty and pecentage")
+        # elif qty:
+        #     data = {'qty': qty}
+        # elif percentage:
+        #     data = {'percentage': percentage}
+        # else:
+        #     data = {}
+        if qty:
+            data = {'qty': qty}
+        else:
+            data = {}
+        resp = self.delete('/positions/{}'.format(symbol), data=data)
         return self.response_wrapper(resp, Position)
 
     def close_all_positions(self) -> Positions:
@@ -518,7 +544,7 @@ class REST(object):
         return self.response_wrapper(resp['last'], Trade)
 
     def get_last_quote(self, symbol: str) -> Quote:
-        """Get the last trade for the given symbol"""
+        """Get the last quote for the given symbol"""
         resp = self.data_get('/last_quote/stocks/{}'.format(symbol))
         return self.response_wrapper(resp['last'], Quote)
 
@@ -652,6 +678,35 @@ class REST(object):
                                        limit,
                                        raw=True))
         return BarsV2(bars)
+
+    def get_latest_trade(self, symbol: str) -> TradeV2:
+        """
+        Get the latest trade for the given symbol
+        """
+        resp = self.data_get(
+                             '/stocks/{}/trades/latest'.format(symbol),
+                             api_version='v2')
+        return self.response_wrapper(resp['trade'], TradeV2)
+
+    def get_latest_quote(self, symbol: str) -> QuoteV2:
+        """Get the latest quote for the given symbol"""
+        resp = self.data_get(
+                             '/stocks/{}/quotes/latest'.format(symbol),
+                             api_version='v2')
+        return self.response_wrapper(resp['quote'], QuoteV2)
+
+    def get_snapshot(self, symbol: str) -> SnapshotV2:
+        """Get the snapshot for the given symbol"""
+        resp = self.data_get('/stocks/{}/snapshot'.format(symbol),
+                             api_version='v2')
+        return self.response_wrapper(resp, SnapshotV2)
+
+    def get_snapshots(self, symbols: List[str]) -> SnapshotsV2:
+        """Get the snapshots for the given symbols"""
+        resp = self.data_get(
+            '/stocks/snapshots?symbols={}'.format(','.join(symbols)),
+            api_version='v2')
+        return self.response_wrapper(resp, SnapshotsV2)
 
     def get_clock(self) -> Clock:
         resp = self.get('/clock')

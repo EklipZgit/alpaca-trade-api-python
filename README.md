@@ -24,6 +24,10 @@ The solution - manually install these package before installing alpaca-trade-api
 ```bash
 pip install pandas==1.1.5 numpy==1.19.4 scipy==1.5.4
 ```
+Also note that we do not limit the version of the websockets library, but we advice using
+```
+websockets>=9.0
+```
 
 Installing using pip
 ```bash
@@ -172,8 +176,8 @@ for trade in trades_iter:
 ### Live Stream Data
 There are 2 streams available as described [here](https://alpaca.markets/docs/api-documentation/api-v2/market-data/alpaca-data-api-v2/real-time/).<br>
 The free plan is using the `iex` stream, while the paid subscription is using the `sip` stream.<br>
-You could subscribe to bars, trades or quotes and accoutn updates as well.<br>
-Under the example folder you could find different code [samples](https://github.com/alpacahq/alpaca-trade-api-python/tree/feature/data-v2/examples/websockets) to achieve different goals. Let's see the basic example<br>
+You could subscribe to bars, trades or quotes and trade updates as well.<br>
+Under the example folder you could find different code [samples](https://github.com/alpacahq/alpaca-trade-api-python/tree/master/examples/websockets) to achieve different goals. Let's see the basic example<br>
 We present a new Streamer class under `alpaca_trade_api.stream` for API V2.
 ```py
 
@@ -255,7 +259,7 @@ You can access the following information through this object.
 | get_account()                                    | `GET /account` and | `Account` entity.|
 | get_order_by_client_order_id(client_order_id)    | `GET /orders` with client_order_id | `Order` entity.|
 | list_orders(status=None, limit=None, after=None, until=None, direction=None, nested=None) | `GET /orders` | list of `Order` entities. `after` and `until` need to be string format, which you can obtain by `pd.Timestamp().isoformat()` |
-| submit_order(symbol, qty, side, type, time_in_force, limit_price=None, stop_price=None, client_order_id=None, order_class=None, take_profit=None, stop_loss=None, trail_price=None, trail_percent=None)| `POST /orders` |  `Order` entity. |
+| submit_order(symbol, qty=None, side="buy", type="market", time_in_force="day", limit_price=None, stop_price=None, client_order_id=None, order_class=None, take_profit=None, stop_loss=None, trail_price=None, trail_percent=None, notional=None)| `POST /orders` |  `Order` entity. |
 | get_order(order_id)                              | `GET /orders/{order_id}` | `Order` entity.|
 | cancel_order(order_id)                           | `DELETE /orders/{order_id}` | |
 | cancel_all_orders()                              | `DELETE /orders`| |
@@ -292,6 +296,28 @@ api.submit_order(
         stop_price='295.5',
         limit_price='295.5',
     )
+)
+```
+
+For simple orders with `type='market'` and `time_in_force='day'`, you can pass a fractional amount (`qty`) or a `notional` amount (but not both). For instace, if the current market price for SPY is $300, the following calls are equivalent:
+
+```py
+api.submit_order(
+    symbol='SPY',
+    qty=1.5,  # fractional shares
+    side='buy',
+    type='market',
+    time_in_force='day',
+)
+```
+
+```py
+api.submit_order(
+    symbol='SPY',
+    notional=450,  # notional value of 1.5 shares of SPY at $300
+    side='buy',
+    type='market',
+    time_in_force='day',
 )
 ```
 

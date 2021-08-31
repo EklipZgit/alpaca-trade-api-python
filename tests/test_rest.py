@@ -98,6 +98,7 @@ def test_orders(reqmock):
     "account_id": "904837e3-3b76-47ec-b432-046db621571b",
     "asset_id": "904837e3-3b76-47ec-b432-046db621571b",
     "qty": "15",
+    "notional": null,
     "side": "buy",
     "type": "market",
     "timeinforce": "day",
@@ -134,6 +135,7 @@ def test_orders(reqmock):
   "account_id": "904837e3-3b76-47ec-b432-046db621571b",
   "asset_id": "904837e3-3b76-47ec-b432-046db621571b",
   "qty": "15",
+  "notional": null,
   "side": "buy",
   "type": "market",
   "timeinforce": "day",
@@ -166,6 +168,7 @@ def test_orders(reqmock):
         client_order_id='904837e3-3b76-47ec-b432-046db621571b',
     )
     assert order.qty == "15"
+    assert order.notional is None
     assert order.created_at.hour == 19
     assert type(order) == tradeapi.entity.Order
     assert type(api_raw.submit_order(
@@ -232,6 +235,7 @@ def test_orders(reqmock):
   "account_id": "904837e3-3b76-47ec-b432-046db621571b",
   "asset_id": "904837e3-3b76-47ec-b432-046db621571b",
   "qty": "15",
+  "notional": null,
   "side": "buy",
   "type": "market",
   "timeinforce": "day",
@@ -268,6 +272,7 @@ def test_orders(reqmock):
   "account_id": "904837e3-3b76-47ec-b432-046db621571b",
   "asset_id": "904837e3-3b76-47ec-b432-046db621571b",
   "qty": 15,
+  "notional": null,
   "side": "buy",
   "type": "market",
   "timeinforce": "day",
@@ -536,6 +541,253 @@ def test_data(reqmock):
     assert type(quote) == tradeapi.entity.Quote
     assert type(api_raw.get_last_quote('AAPL')) == dict
 
+    # Latest trade
+    reqmock.get(
+        'https://data.alpaca.markets/v2/stocks/AAPL/trades/latest',
+        text='''
+        {
+            "symbol": "AAPL",
+            "trade": {
+                "t": "2021-04-20T12:40:34.123456789Z",
+                "x": "J",
+                "p": 134.7,
+                "s": 20,
+                "c": [
+                    "@",
+                    "T",
+                    "I"
+                ],
+                "i": 32,
+                "z": "C"
+            }
+        }
+        '''
+    )
+    latest_trade = api.get_latest_trade('AAPL')
+    assert latest_trade.exchange == "J"
+    assert latest_trade.price == 134.7
+    assert latest_trade.size == 20
+    assert latest_trade.conditions == ["@", "T", "I"]
+    assert latest_trade.id == 32
+    assert latest_trade.tape == "C"
+    assert latest_trade.timestamp.day == 20
+    assert latest_trade.timestamp.second == 34
+    assert latest_trade.timestamp.nanosecond == 789
+    assert type(latest_trade) == tradeapi.entity_v2.TradeV2
+    assert type(api_raw.get_latest_trade('AAPL')) == dict
+
+    # Latest quote
+    reqmock.get(
+        'https://data.alpaca.markets/v2/stocks/AAPL/quotes/latest',
+        text='''
+        {
+            "symbol": "AAPL",
+            "quote": {
+                "t": "2021-04-20T13:01:57.123456789",
+                "ax": "Q",
+                "ap": 134.68,
+                "as": 1,
+                "bx": "K",
+                "bp": 134.66,
+                "bs": 29,
+                "c": [
+                    "R"
+                ],
+                "z": "C"
+            }
+        }'''
+    )
+
+    latest_quote = api.get_latest_quote('AAPL')
+    assert latest_quote.ask_exchange == "Q"
+    assert latest_quote.ask_price == 134.68
+    assert latest_quote.ask_size == 1
+    assert latest_quote.bid_exchange == "K"
+    assert latest_quote.bid_price == 134.66
+    assert latest_quote.bid_size == 29
+    assert latest_quote.conditions == ["R"]
+    assert latest_quote.tape == "C"
+    assert latest_quote.timestamp.day == 20
+    assert latest_quote.timestamp.nanosecond == 789
+    assert type(latest_quote) == tradeapi.entity_v2.QuoteV2
+    assert type(api_raw.get_latest_quote('AAPL')) == dict
+
+    # Snapshot
+    reqmock.get(
+        'https://data.alpaca.markets/v2/stocks/AAPL/snapshot',
+        text='''
+        {
+            "symbol": "AAPL",
+            "latestTrade": {
+                "t": "2021-05-03T14:45:50.456Z",
+                "x": "D",
+                "p": 133.55,
+                "s": 200,
+                "c": [
+                    "@"
+                ],
+                "i": 61462,
+                "z": "C"
+            },
+            "latestQuote": {
+                "t": "2021-05-03T14:45:50.532316972Z",
+                "ax": "P",
+                "ap": 133.55,
+                "as": 7,
+                "bx": "Q",
+                "bp": 133.54,
+                "bs": 9,
+                "c": [
+                    "R"
+                ]
+            },
+            "minuteBar": {
+                "t": "2021-05-03T14:44:00Z",
+                "o": 133.485,
+                "h": 133.4939,
+                "l": 133.42,
+                "c": 133.445,
+                "v": 182818
+            },
+            "dailyBar": {
+                "t": "2021-05-03T04:00:00Z",
+                "o": 132.04,
+                "h": 134.07,
+                "l": 131.83,
+                "c": 133.445,
+                "v": 25094213
+            },
+            "prevDailyBar": {
+                "t": "2021-04-30T04:00:00Z",
+                "o": 131.82,
+                "h": 133.56,
+                "l": 131.065,
+                "c": 131.46,
+                "v": 109506363
+            }
+        }'''
+    )
+    snapshot = api.get_snapshot('AAPL')
+    assert snapshot.latest_trade.price == 133.55
+    assert snapshot.latest_quote.bid_size == 9
+    assert snapshot.minute_bar.open == 133.485
+    assert snapshot.daily_bar.high == 134.07
+    assert snapshot.prev_daily_bar.volume == 109506363
+
+    # Snapshots
+    reqmock.get(
+        'https://data.alpaca.markets/v2/stocks/snapshots' +
+        '?symbols=AAPL,MSFT,INVALID',
+        text='''
+        {
+            "AAPL": {
+                "latestTrade": {
+                    "t": "2021-05-03T14:48:06.563Z",
+                    "x": "D",
+                    "p": 133.4201,
+                    "s": 145,
+                    "c": [
+                        "@"
+                    ],
+                    "i": 62700,
+                    "z": "C"
+                },
+                "latestQuote": {
+                    "t": "2021-05-03T14:48:07.257820915Z",
+                    "ax": "Q",
+                    "ap": 133.43,
+                    "as": 7,
+                    "bx": "Q",
+                    "bp": 133.42,
+                    "bs": 15,
+                    "c": [
+                        "R"
+                    ]
+                },
+                "minuteBar": {
+                    "t": "2021-05-03T14:47:00Z",
+                    "o": 133.4401,
+                    "h": 133.48,
+                    "l": 133.37,
+                    "c": 133.42,
+                    "v": 207020
+                },
+                "dailyBar": {
+                    "t": "2021-05-03T04:00:00Z",
+                    "o": 132.04,
+                    "h": 134.07,
+                    "l": 131.83,
+                    "c": 133.42,
+                    "v": 25846800
+                },
+                "prevDailyBar": {
+                    "t": "2021-04-30T04:00:00Z",
+                    "o": 131.82,
+                    "h": 133.56,
+                    "l": 131.065,
+                    "c": 131.46,
+                    "v": 109506363
+                }
+            },
+            "MSFT": {
+                "latestTrade": {
+                    "t": "2021-05-03T14:48:06.36Z",
+                    "x": "D",
+                    "p": 253.8738,
+                    "s": 100,
+                    "c": [
+                        "@"
+                    ],
+                    "i": 22973,
+                    "z": "C"
+                },
+                "latestQuote": {
+                    "t": "2021-05-03T14:48:07.243353456Z",
+                    "ax": "N",
+                    "ap": 253.89,
+                    "as": 2,
+                    "bx": "Q",
+                    "bp": 253.87,
+                    "bs": 2,
+                    "c": [
+                        "R"
+                    ]
+                },
+                "minuteBar": {
+                    "t": "2021-05-03T14:47:00Z",
+                    "o": 253.78,
+                    "h": 253.869,
+                    "l": 253.78,
+                    "c": 253.855,
+                    "v": 25717
+                },
+                "dailyBar": {
+                    "t": "2021-05-03T04:00:00Z",
+                    "o": 253.34,
+                    "h": 254.35,
+                    "l": 251.8,
+                    "c": 253.855,
+                    "v": 6100459
+                },
+                "prevDailyBar": null
+            },
+            "INVALID": null
+        }
+        '''
+    )
+    snapshots = api.get_snapshots(['AAPL', 'MSFT', 'INVALID'])
+    assert len(snapshots) == 3
+    aapl_snapshot = snapshots.get('AAPL')
+    assert aapl_snapshot is not None
+    assert aapl_snapshot.latest_trade.size == 145
+    assert aapl_snapshot.latest_quote.bid_exchange == "Q"
+    msft_snapshot = snapshots.get('MSFT')
+    assert msft_snapshot is not None
+    assert msft_snapshot.minute_bar.low == 253.78
+    assert msft_snapshot.daily_bar.close == 253.855
+    assert msft_snapshot.prev_daily_bar is None
+    assert snapshots.get('INVALID') is None
+
 
 def test_watchlists(reqmock):
     api = tradeapi.REST('key-id', 'secret-key', api_version='v1')
@@ -757,16 +1009,16 @@ def test_watchlists(reqmock):
 
 
 def test_errors(reqmock):
-    api = tradeapi.REST('key-id', 'secret-key', api_version='v1')
+    api_v1 = tradeapi.REST('key-id', 'secret-key', api_version='v1')
 
-    api._retry = 1
-    api._retry_wait = 0
+    api_v1._retry = 1
+    api_v1._retry_wait = 0
 
-    api._do_error = True
+    api_v1._do_error = True
 
     def callback_429(request, context):
-        if api._do_error:
-            api._do_error = False
+        if api_v1._do_error:
+            api_v1._do_error = False
             context.status_code = 429
             return 'Too Many Requests'
         else:
@@ -792,7 +1044,7 @@ def test_errors(reqmock):
         text=callback_429,
     )
 
-    account = api.get_account()
+    account = api_v1.get_account()
     assert account.cash == '4000.32'
 
     # General API Error
@@ -805,7 +1057,7 @@ def test_errors(reqmock):
     )
 
     try:
-        api.submit_order(
+        api_v1.submit_order(
             symbol='AAPL',
             side='buy',
             qty='3',
@@ -819,6 +1071,123 @@ def test_errors(reqmock):
         assert err.response.status_code == err.status_code
     else:
         assert False
+
+    api_v2 = tradeapi.REST('key-id', 'secret-key', api_version='v2')
+
+    # `qty` and `notional` both null in submit_order
+    reqmock.post(
+        'https://api.alpaca.markets/v2/orders',
+        status_code=422,
+        text='''
+    {"code":40010001,"message":"qty or notional is required"}
+'''
+    )
+
+    try:
+        api_v2.submit_order(
+            symbol='AAPL',
+            side='buy',
+            type='market',
+            time_in_force='day',
+        )
+    except APIError as err:
+        assert err.code == 40010001
+        assert err.status_code == 422
+        assert err.request is not None
+        assert err.response.status_code == err.status_code
+    else:
+        assert False
+
+    # `qty` and `notional` both non-null in submit_order
+    reqmock.post(
+        'https://api.alpaca.markets/v2/orders',
+        status_code=422,
+        text='''
+    {"code": 40010001, "message": "only one of qty or notional is accepted"}
+'''
+    )
+
+    try:
+        api_v2.submit_order(
+            symbol='AAPL',
+            side='buy',
+            type='market',
+            time_in_force='day',
+            qty=1,
+            notional=1,
+        )
+    except APIError as err:
+        assert err.code == 40010001
+        assert err.status_code == 422
+        assert err.request is not None
+        assert err.response.status_code == err.status_code
+    else:
+        assert False
+
+    # fractional `qty` passed to replace_order
+    reqmock.post(
+        'https://api.alpaca.markets/v2/orders',
+        text='''{
+    "id": "fb61d316-2179-4df2-8b28-eb026c0dd78e",
+    "client_order_id": "6de7d1b2-f772-4a0d-8c15-bacea15eb29e",
+    "created_at": "2021-04-07T18:25:30.812371Z",
+    "updated_at": "2021-04-07T18:25:30.812371Z",
+    "submitted_at": "2021-04-07T18:25:30.803178Z",
+    "filled_at": null,
+    "expired_at": null,
+    "canceled_at": null,
+    "failed_at": null,
+    "replaced_at": null,
+    "replaced_by": null,
+    "replaces": null,
+    "asset_id": "b28f4066-5c6d-479b-a2af-85dc1a8f16fb",
+    "symbol": "SPY",
+    "asset_class": "us_equity",
+    "notional": null,
+    "qty": "1",
+    "filled_qty": "0",
+    "filled_avg_price": null,
+    "order_class": "",
+    "order_type": "limit",
+    "type": "limit",
+    "side": "buy",
+    "time_in_force": "day",
+    "limit_price": "400",
+    "stop_price": null,
+    "status": "accepted",
+    "extended_hours": false,
+    "legs": null,
+    "trail_percent": null,
+    "trail_price": null,
+    "hwm": null
+}''')
+    order = api_v2.submit_order(
+        symbol='SPY',
+        qty=1,
+        side='buy',
+        type='limit',
+        time_in_force='day',
+        limit_price='400.00',
+    )
+
+    reqmock.patch(
+        'https://api.alpaca.markets/v2/orders/{}'.format(order.id),
+        status_code=422,
+        text='''{
+    "code": 40010001,
+    "message": "qty must be integer"
+}''')
+    try:
+        api_v2.replace_order(
+            order_id=order.id,
+            qty="1.5",
+            client_order_id=order.client_order_id,
+        )
+    except APIError as err:
+        assert err.code == 40010001
+        assert err.status_code == 422
+        assert err.request is not None
+        assert err.response.status_code == err.status_code
 
 
 def test_no_resource_warning_with_context_manager():

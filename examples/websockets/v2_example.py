@@ -29,6 +29,14 @@ def main():
     async def _(bar):
         print('bar', bar)
 
+    @stream.on_status("*")
+    async def _(status):
+        print('status', status)
+
+    @stream.on_luld('AAPL', 'MSFT')
+    async def _(luld):
+        print('LULD', luld)
+
     stream.run()
 
 
